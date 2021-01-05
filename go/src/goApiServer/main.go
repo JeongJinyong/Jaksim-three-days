@@ -1,40 +1,59 @@
 package main
 
 import (
+	"database/sql"
+	_ "github.com/go-sql-driver/mysql" // 익명함수
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type (
 	user struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
+		ID   int    `json:"id" db:"id"`
+		Name string `json:"name" db:"name"`
 	}
 )
 
-var (
-	users = map[int]*user{}
-	seq   = 1
-)
-
 func createUser(c echo.Context) error {
+
+	db, err := sql.Open("mysql", "root:qwd@tcp(127.0.0.1:3306/testdb")
+	if err != nil {
+		panic(err)
+	}
+	db.SetConnMaxLifetime(time.Minute * 3)
+
+	var seq int
+	err = db.QueryRow("SELECT count(id) FROM user ").Scan(&seq)
+	if err != nil{
+		panic(err)
+	}
 	u := &user{
-		ID: seq,
+		ID: seq + 1,
 	}
 
 	if err := c.Bind(u); err != nil {
 		c.JSON(http.StatusCreated, err)
 		return err
 	}
-	users[u.ID] = u
-	seq++
+	db.Exec("INSERT INTO user VALUES (?,?)",u.ID,u.Name)
+
+	defer db.Close()
 	return c.JSON(http.StatusCreated, u)
 }
 
 func getUser(c echo.Context) error {
+	db, err := sql.Open("mysql", "root:qwd@tcp(127.0.0.1:3306/testdb")
+	if err != nil {
+		panic(err)
+	}
+	db.SetConnMaxLifetime(time.Minute * 3)
 	id, _ := strconv.Atoi(c.Param("id"))
+	db.QueryRow()
+
+	defer db.Close()
 	return c.JSON(http.StatusOK, users[id])
 }
 
@@ -57,7 +76,6 @@ func deleteUser(c echo.Context) error {
 func getAllUsers(c echo.Context) error {
 	return c.JSON(http.StatusOK, users)
 }
-
 
 func main() {
 	e := echo.New()
